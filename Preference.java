@@ -8,6 +8,7 @@ public class Preference {
 	int score;
 	boolean free;
 	boolean modelAsHard;
+	boolean workWith;
 	
 		
 	public Preference(int week, int day, int order, boolean modelAsHard) {
@@ -37,6 +38,7 @@ public class Preference {
 		}
 		
 		x.granted = r.granted;
+		x.free = r.free;
 		return x;
 	}
 

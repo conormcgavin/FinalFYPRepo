@@ -14,6 +14,8 @@ public class Employee {
 	
 	ArrayList<Integer> bankHistory;
 	ArrayList<Integer> prefScoreHistory;
+	ArrayList<Integer> freePrefHistory;
+	ArrayList<Float> conflictPercentageGrantedHistory;
 	int bank;
 	int totalGivenScore;
 	
@@ -23,6 +25,8 @@ public class Employee {
 		this.preferencesReceived = new int[Constants.PREFERENCES_PER_PERSON];
 		this.preferenceHistory = new ArrayList<Preference>();
 		this.freePrefs = 0;
+		this.freePrefHistory = new ArrayList<Integer>();
+		this.conflictPercentageGrantedHistory = new ArrayList<Float>();
 		
 		this.name = name;
 		this.minDaysPerWeek = min_days;
@@ -33,6 +37,7 @@ public class Employee {
 		if (Constants.MODE == "expectedPrefs" || Constants.MODE == "creditBank") {
 			this.bank = Constants.START_BANK;
 			this.bankHistory = new ArrayList<Integer>();
+			this.bankHistory.add(this.bank);
 			this.totalGivenScore = 0;
 			this.prefScoreHistory = new ArrayList<Integer>();
 		} else if (Constants.MODE == "minPrefs") {

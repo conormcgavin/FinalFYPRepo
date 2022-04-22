@@ -1,5 +1,7 @@
 package finalBosss;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,6 +17,8 @@ public class Scheduler {
 	Model model;
 	
 	IntVar[][] timetable;
+	
+	IntVar[] levels;
 	
 	ArrayList<IntVar[]> preferences;
 	IntVar[] totalPreferencesPerPerson;
@@ -32,12 +36,15 @@ public class Scheduler {
 	IntVar finalScore;
 	IntVar[] exScores;
 	IntVar[] scoreDiffs;
+	IntVar maxScoreDiff;
 	IntVar totalScoreDifference;
 	IntVar totalOverallScore; 
 	IntVar[] preferenceScoreAssignment;
 	IntVar minPrefs;
 	IntVar[] minAdjusted;
 	int[][] preferenceScores;
+	IntVar avgDists;
+	int amountOptimalSolutions;
 	
 	
 	
@@ -48,12 +55,17 @@ public class Scheduler {
 		this.model = model;
 		this.employees = employees;
 		
-		this.timetable = model.intVarMatrix("Timetable", employees.size(), Constants.days_per_week, 0, 1);
+		this.timetable = model.intVarMatrix("Timetable", employees.size(), Constants.DAYS_PER_WEEK, 0, 1);
+		
+		this.levels = model.intVarArray("levels", employees.size(), 0, 2);
 		
 		this.preferences = new ArrayList<IntVar[]>();
 		for (int i=0; i<employees.size(); i++) {
 			preferences.add(model.intVarArray("PreferenceAssignments", Constants.PREFERENCES_PER_PERSON, 0, 1));
+			levels[i] = model.intVar(employees.get(i).skillLevel);
 		}
+		
+		
 		
 		this.totalPreferencesPerPerson = model.intVarArray("PrefsPerPerson", employees.size(), 0, 100000);
 		this.totalOverallPreferences = model.intVar("TotalOverallScore", 0, 100000);
@@ -76,7 +88,7 @@ public class Scheduler {
 		model.sum(ArrayUtils.flatten(timetable), "=", sum_workers_needed).post();
 		
 		// every column should have a sum of exactly the sum of workers needed in that day
-		for (int i=0; i<Constants.days_per_week; i++) {
+		for (int i=0; i<Constants.DAYS_PER_WEEK; i++) {
 			model.sum(ArrayUtils.getColumn(timetable, i), "=", Constants.WORKERS_NEEDED_PER_DAY[i]).post();
 		}
 		
@@ -89,7 +101,12 @@ public class Scheduler {
 	
 	public void addPreference(int person, Preference p) {
 		if (p.modelAsHard == false) {
-			model.ifOnlyIf(this.model.arithm(timetable[person][p.day], "=", 0), this.model.arithm(preferences.get(person)[p.order-1], "=", 1));
+			
+			model.ifOnlyIf(
+					model.arithm(timetable[person][p.day], "=", 0), 
+					model.arithm(preferences.get(person)[p.order-1], "=", 1)
+			);
+			
 		} else {
 			model.arithm(timetable[person][p.day], "=", 0).post();
 			model.arithm(preferences.get(person)[p.order-1], "=", 1).post();
@@ -110,21 +127,31 @@ public class Scheduler {
 		
 		IntVar x = model.intVar(0,1000000);
 		model.arithm(totalOverallPreferences, "*", model.intVar(100), "=", x).post();;
+		
+		IntVar[] y = model.intVarArray(employees.size(), 0,1000000);
+		for (int i = 0; i < employees.size(); i++) {
+			model.arithm(totalPreferencesPerPerson[i], "*", model.intVar(100), "=", y[i]).post();;
+		}
+		
 		IntVar avg = model.intVar(0,1000000);
 		model.arithm(x, "/", model.intVar(employees.size()), "=", avg).post();;
 		IntVar[] dists = model.intVarArray(employees.size(), 0, 1000000);
 		for (int i = 0; i < employees.size(); i++) {
-			model.distance(avg, totalPreferencesPerPerson[i], "=", dists[i]).post();;
+			model.distance(avg, y[i], "=", dists[i]).post();;
 		}
 		this.sumDists = model.intVar(0,100000);
+		this.avgDists = model.intVar(0,100000);
 		model.sum(dists, "=", sumDists).post();
+		model.arithm(sumDists, "/", model.intVar(employees.size()), "=", avgDists).post();;
 	}	
 	
 	public void optimise() {
+		
 		for (int i = 0; i < employees.size(); i++) {
 			model.sum(preferences.get(i), "=", totalPreferencesPerPerson[i]).post();
 		}
-		model.sum(totalPreferencesPerPerson, "=", totalPreferencesPerPerson).post();
+		
+		model.sum(totalPreferencesPerPerson, "=", totalOverallPreferences).post();
 	
 		if (Constants.MODE == "minPrefs") {
 			this.optimiseMinPrefs();
@@ -136,14 +163,14 @@ public class Scheduler {
 	}
 	
 	public void optimiseCreditBank() {
-		// TODO Auto-generated method stub
+		
 		this.preferenceScoreAssignment = model.intVarArray("PreferenceScores", employees.size(), 0 , 100000);
+		this.totalOverallScore = model.intVar("TotalOverallScore", 0, 100000);
 		
 		for (int i=0; i<employees.size(); i++) {
 			model.scalar(preferences.get(i), preferenceScores[i], "=", preferenceScoreAssignment[i]).post();
 		}
 		
-		this.totalOverallPreferences = model.intVar("TotalOverallScore", 0, 100000);
 		model.sum(preferenceScoreAssignment, "=", totalOverallScore).post();
 		
 		model.setObjective(Model.MAXIMIZE, totalOverallScore);
@@ -151,9 +178,8 @@ public class Scheduler {
 	}
 
 	public void optimiseExpectedPrefs() {
+		
 		this.exScores = model.intVarArray("exScores", employees.size(), 0, 100000);
-		this.scoreDiffs = model.intVarArray("scoreDiffs", employees.size(), 0, 100000);
-		this.totalScoreDifference = model.intVar("TotalScoreDiff", 0, 100000);
 		
 		int sum = 0;
 		int[] banks = new int[this.employees.size()];
@@ -173,52 +199,84 @@ public class Scheduler {
 			bank_percentagesInt[i] = model.intVar((int)bank_percentages[i]);
 		}
 		
-		this.finalScore = model.intVar("FinalScore", 0, 1000000);
-		
-		
-		IntVar tmp2 = model.intVar(0, 100000000);
-		model.arithm(totalOverallPreferences, "*", model.intVar(100), "=", tmp2).post();
-		
 		for (int i=0; i<employees.size(); i++) {
 			model.arithm(totalOverallPreferences, "*", bank_percentagesInt[i], "=", exScores[i]).post();
 		}
 		
-		IntVar[] tmp = model.intVarArray(this.employees.size(), 0,10000000);
+		
+		
+		this.scoreDiffs = model.intVarArray("scoreDiffs", employees.size(), 0, 100000);
+		this.totalScoreDifference = model.intVar("TotalScoreDiff", 0, 100000);
+		this.finalScore = model.intVar("FinalScore", 0, 1000000);
+		
+		IntVar totalOverallPreferencesBy100 = model.intVar(0, 100000000);
+		totalOverallPreferencesBy100 = model.intScaleView(totalOverallPreferences, 100);
+		
+		
+		IntVar[] totalPreferencesPerPersonBy100 = model.intVarArray(this.employees.size(), 0,10000000);
 		for (int i = 0; i < employees.size(); i++) {
-			tmp[i] = model.intScaleView(totalPreferencesPerPerson[i], 100);
+			totalPreferencesPerPersonBy100[i] = model.intScaleView(totalPreferencesPerPerson[i], 100);
 		}
 		
 		for (int i=0; i<employees.size(); i++) {
-			model.distance(tmp[i], exScores[i], "=", scoreDiffs[i]).post();
+			model.distance(totalPreferencesPerPersonBy100[i], exScores[i], "=", scoreDiffs[i]).post();
 		}
 		model.sum(scoreDiffs, "=", totalScoreDifference).post();
 		
-		IntVar lol = model.intVar(0,100000);
-		model.max(lol, scoreDiffs).post();
-	
-		model.arithm(finalScore, "=", tmp2, "-", lol).post();
+		maxScoreDiff = model.intVar(0, 100000000);
+		model.max(maxScoreDiff, scoreDiffs).post();
+		/*
+		IntVar[] diffs = model.intVarArray(employees.size(), 0, 10000000);
+		
+		IntVar maxScoreDiff = model.intVar(0, 10000000);
+		for (int i=0; i<employees.size(); i++) {
+			// have a list pointing to the intvars for every leftover variable
+			// get the min diff from this
+			// multiply it by 10^i
+			// add it to list of diffs
+			
+			// get argmin and remove it from the list? is that possible
+			// 
+			IntVar maxDist = model.max(maxScoreDiff, scoreDiffs).post();
+		}
+		// get sum of this list as finalscore thing
+		*/
+		
+		model.arithm(finalScore, "=", totalOverallPreferencesBy100, "-", maxScoreDiff).post();
 		
 		model.setObjective(Model.MAXIMIZE, finalScore);
 		
 	}
 
 	public void optimiseMinPrefs() {
+
 		this.minPrefs = model.intVar(0, 1000000);
 		this.minAdjusted = model.intVarArray(employees.size(), 0, 1000000);
-		
+
 		for (int i = 0; i < employees.size(); i++) {
-			model.arithm(minAdjusted[i], "=", totalPreferencesPerPerson[i], "+", employees.get(i).bank).post();;
+			model.arithm(minAdjusted[i], "=", totalPreferencesPerPerson[i], "+", employees.get(i).bank).post();
+			;
 		}
+
 		model.min(minPrefs, minAdjusted).post();
+
+		/*
+		model.arithm(finalScore, "=", totalOverallPreferences, "+", minPrefs).post();
+
+		model.setObjective(Model.MAXIMIZE, finalScore);
+		*/
 	}
 
 
-	public Solution solve() {
-		System.out.println("Solving...");
+	public Solution solve(boolean printSolutions) {
+		if (printSolutions) {
+			System.out.println("Solving...");
+		}
 		Solver solver = model.getSolver();
 		finalSolution = new Solution(model);
 		
 		if (Constants.MODE == "maxPrefs") {
+			
 			ParetoMaximizer po = new ParetoMaximizer(new IntVar[]{totalOverallPreferences,model.intMinusView(diff)});
 			solver.plugMonitor(po);
 			
@@ -226,12 +284,9 @@ public class Scheduler {
 			}
 			
 			List<Solution> paretoFront = po.getParetoFront();
-			for(Solution s:paretoFront){
-		        System.out.println("a = "+s.getIntVal(totalOverallPreferences)+" and b = "+s.getIntVal(diff));
-			}
+			int maxPrefs = 0;
+			
 			if (paretoFront.size() > 0) {
-				int maxPrefs =0;
-				
 				for (Solution solution : paretoFront) {
 					if (solution.getIntVal(totalOverallPreferences) > maxPrefs) {
 						maxPrefs = solution.getIntVal(totalOverallPreferences);
@@ -242,8 +297,31 @@ public class Scheduler {
 						}
 					}
 				}
+				
+				
+				for(Solution s:paretoFront){
+			        System.out.println("a = "+s.getIntVal(totalOverallPreferences)+" and b = "+s.getIntVal(diff));
+				}
+				
+				int optimalSolutions = 0;
+				for (Solution solution : paretoFront) {
+					if (solution.getIntVal(totalOverallPreferences) == maxPrefs) {
+						optimalSolutions +=1;
+					}
+				}
+				FileWriter fw;
+				try {
+					fw = new FileWriter("C:\\Users\\cmcga\\optimal.txt", true);
+					fw.write(String.format("%d\n", optimalSolutions));
+					fw.close();
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 			}
+			
 		} else if (Constants.MODE == "minPrefs") {
+			
 			ParetoMaximizer po = new ParetoMaximizer(new IntVar[]{minPrefs,totalOverallPreferences});
 			solver.plugMonitor(po);
 			
@@ -251,32 +329,35 @@ public class Scheduler {
 			}
 			
 			List<Solution> paretoFront = po.getParetoFront();
-			for(Solution s:paretoFront){
-		        System.out.println("a = "+s.getIntVal(totalOverallPreferences)+" and b = "+s.getIntVal(diff));
-			}
-		
 			if (paretoFront.size() > 0) {
 				int min =0;
-				
 				for (Solution solution : paretoFront) {
 					if (solution.getIntVal(minPrefs) > min) {
 						min = solution.getIntVal(minPrefs);
 						finalSolution = solution;
 					} else if (solution.getIntVal(minPrefs) == min) {
-						if(solution.getIntVal(totalOverallPreferences) > finalSolution.getIntVal(totalOverallPreferences) ) {
+						if(solution.getIntVal(totalOverallPreferences) > finalSolution.getIntVal(totalOverallPreferences)) {
 							finalSolution = solution;
 						}
 					}
 				}
 			}
+			
+			for(Solution s:paretoFront){
+		        System.out.println("a = "+s.getIntVal(totalOverallPreferences)+" and b = "+s.getIntVal(minPrefs));
+			}
+			
 		} else {
 			while (solver.solve()) {
 				finalSolution.record();
 			}	
 		}
-		printSolution(finalSolution);
-		printPreferenceAssignments(finalSolution);
-		printExtraInfo(finalSolution);
+		if (printSolutions) {
+			printSolution(finalSolution);
+			printPreferenceAssignments(finalSolution);
+			printExtraInfo(finalSolution);
+			
+		}
 		return finalSolution;
 	}
 	
@@ -286,15 +367,9 @@ public class Scheduler {
 		System.out.println("-----------------------------------------------------------------------------");
 		String row_sol;
 		for (int i = 0; i < employees.size(); i++) {
-			int count = 0;
 			row_sol = "Worker " + i + ":\t";
-			for (int j = 0; j < Constants.days_per_week; j++) {
+			for (int j = 0; j < Constants.DAYS_PER_WEEK; j++) {
 				row_sol += s.getIntVal(timetable[i][j]) + "\t";
-				count += 1;
-				if (count == Constants.hours_per_day) {
-					row_sol += " | \t";
-					count = 0;
-				}
 			}
 			System.out.println(row_sol);			
 		}	
@@ -322,7 +397,7 @@ public class Scheduler {
 		System.out.println("Total preferences granted: " + s.getIntVal(totalOverallPreferences));
 		System.out.println("Average preferences per employee: " + (float)s.getIntVal(totalOverallPreferences) / (float)employees.size());
 		System.out.println("Difference from max preferences to min prefs: " + s.getIntVal(diff));
-		System.out.println("Average distance from average preferences each: " + (s.getIntVal(diff)) /(float)employees.size());
+		System.out.println("Average distance from average preferences each: " + (s.getIntVal(avgDists)));
 		System.out.println();
 		
 		if (Constants.MODE == "minPrefs") {
@@ -334,11 +409,12 @@ public class Scheduler {
 				System.out.print((float)(s.getIntVal(exScores[j])) / 100.0 + "\t");
 			}
 			System.out.println();
-			System.out.println("\nActual Preferences: ");
+			System.out.print("\nActual Preferences: ");
 			for (int j = 0; j < employees.size(); j++) {
 				System.out.print(s.getIntVal(totalPreferencesPerPerson[j]) + "\t");
 			}
 			System.out.println();
+			System.out.println("Final Score: " + s.getIntVal(finalScore));
 			
 		} else if (Constants.MODE == "creditBank") {
 			System.out.println("Score per employee: ");

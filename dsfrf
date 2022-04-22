@@ -2,8 +2,6 @@ package finalBosss;
 
 import java.io.IOException;
 
-import org.chocosolver.solver.Solution;
-
 
 public class Main {
 	static Employee e1;
@@ -22,77 +20,61 @@ public class Main {
 		//c.addEmployee(e7);
 		//c.addEmployee(e8);
 		
-
 		
-		int numWeeks = 2;
+		/*
+		c.initialiseScheduler();
 		
-		reset();
+		int numWeeks = 1;
+		
+		
 		for (int i = 0; i < numWeeks; i++) {
-			
 			c.initialiseScheduler();
 			
-			e1.addPreference(c.week, 4, 1);
-			e1.addPreference(c.week, 5, 2);
-			e1.addPreference(c.week, 6, 3);
-			e2.addPreference(c.week, 4, 1);
-			e2.addPreference(c.week, 5, 2);
-			e2.addPreference(c.week, 6, 3);
-			
-			/*
-			e3.addPreference(c.week, 1, 1);
-			e3.addPreference(c.week, 2, 2);
-			e3.addPreference(c.week, 3, 3);
-			/*
-			e4.addPreference(c.week, 4, 1);
-			e4.addPreference(c.week, 5, 2);
-			e4.addPreference(c.week, 6, 3);
-			/*
-			e5.addPreference(c.week, 0, 1);
-			e5.addPreference(c.week, 2, 2);
-			e5.addPreference(c.week, 3, 3);
-			e6.addPreference(c.week, 0, 1);
-			e6.addPreference(c.week, 2, 2);
-			e6.addPreference(c.week, 3, 3);
-			*/
+			e1.addPreference(c.week, 0, 1);
+			e1.addPreference(c.week, 1, 2);
+			e1.addPreference(c.week, 2, 3);
+			e2.addPreference(c.week, 3, 1);
+			e2.addPreference(c.week, 4, 2);
+			e2.addPreference(c.week, 5, 3);
 			
 			Solution s = c.runWeek();
+			c.completeWeek();
 			
-			if (i < numWeeks -1) {
-				c.completeWeek();
-				c.newWeek();
-			}
+			
+			c.newWeek();
+			
 		}
-		
-		
-		e1.printStats();
-		e2.printStats();
-		/*
-		c.explain1(1, e2.preferences.get(2));
-		System.out.println("_________________________\n\n");
 		*/
-		c.explain3(1, e2.preferences.get(2));
-		System.out.println("_________________________\n\n");
-		//c.explain3(1, e2.preferences.get(2));
-		
-		//c.explain3(1, e2.preferences.get(2));
+
 		/*
 		reset();
 		c.sampleRun(2, 1, true, false, 0);
 		*/
 		
-		/*
 
-		int numIters = 5;
+		int numIters = 20;
 		
 		
 		// change every week, weekend heavy / not weekend heavy, 4 employees
 		
 		for (int i = 0; i < numIters; i++) {
-	
+		
+			reset();
+			c.sampleRun(1, 1, true, true, i);
+			reset();
+			c.sampleRun(6, 1, true, true, i);
+			reset();
+			c.sampleRun(24, 1, true, true, i);
 			reset();
 			c.sampleRun(52, 1, true, true, i);
 			reset();
-			c.sampleRun(52, 4, true, true, i);
+			c.sampleRun(1, 1, false, true, i);
+			reset();
+			c.sampleRun(6, 1, false, true, i);
+			reset();
+			c.sampleRun(24, 1, false, true, i);
+			reset();
+			c.sampleRun(52, 1, false, true, i);
 		}
 		
 		for (int i = 0; i < numIters; i++) {
@@ -116,6 +98,7 @@ public class Main {
 			reset();
 		}
 		
+		
 		for (int i = 0; i < numIters; i++) {
 			c.sampleRun(1, 52, true, true, i);
 			reset();
@@ -133,7 +116,7 @@ public class Main {
 			reset();
 			c.sampleRun(52, 52, true, true, i);
 		}
-		*/
+		
 		
 		
 		// track bank
@@ -168,26 +151,24 @@ public class Main {
 	
 	public static void reset() {
 		c = new Controller();
-		e1 = new Employee("John", 4, 4, 1);
-		e2 = new Employee("Mary", 4, 4, 1);
+		e1 = new Employee("John", 2, 4, 1);
+		e2 = new Employee("Mary", 2, 4, 1);
 
-		/*
 		if (Constants.MODE == "minPrefs") {
-			e1.bank += 10;
-			e2.bank += 20;
-		} else*///if (Constants.MODE == "expectedPrefs" || Constants.MODE == "creditBank"){
-			//e1.bank += 100;
-			//e2.bank += 2000;
-		//}
-		
-		e3 = new Employee("Paul", 4, 5, 1);
-		e4 = new Employee("Joanne", 4, 5, 1);
-		//e5 = new Employee("Homer", 2, 4, 1);
-		//e6 = new Employee("Marge", 2, 4, 1);
+			e1.bank += 25;
+			e2.bank += 50;
+		} else if (Constants.MODE == "expectedPrefs" || Constants.MODE == "creditBank"){
+			e1.bank += 1000;
+			e2.bank += 2000;
+		}
+		e3 = new Employee("Paul", 2, 4, 1);
+		e4 = new Employee("Joanne", 2, 4, 1);
+		e5 = new Employee("Homer", 2, 4, 1);
+		e6 = new Employee("Marge", 2, 4, 1);
 		c.addEmployee(e1);
 		c.addEmployee(e2);
-		//c.addEmployee(e3);
-		//c.addEmployee(e4);
+		c.addEmployee(e3);
+		c.addEmployee(e4);
 		//c.addEmployee(e5);
 		//c.addEmployee(e6);
 	}
