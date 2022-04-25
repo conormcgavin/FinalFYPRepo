@@ -13,12 +13,12 @@ import java.io.IOException;
 import java.lang.Math;
 
 public class Controller {
-	ArrayList<Employee> employees;
-	int week;
-	Scheduler scheduler;
+	ArrayList<Employee> employees; // list of employees to be scheduled
+	int week; // current week
+	Scheduler scheduler; // scheduler for producing timetables each week
 	
-	ArrayList<Solution> finalSolutionHistory;
-	ArrayList<Float> averagePercentageConflictPrefsGrantedHistory;
+	ArrayList<Solution> finalSolutionHistory; // history of solutions returned by scheduler each week
+	ArrayList<Float> averagePercentageConflictPrefsGrantedHistory; // history of the average percentage of all employees non-free preferences that were granted over weeks
 	
 	
 	public Controller() {
@@ -28,16 +28,19 @@ public class Controller {
 		this.finalSolutionHistory = new ArrayList<Solution>();
 	}
 	
+	// adds an employee to the system
 	public void addEmployee(Employee e) {
 		System.out.printf("Adding Employee %s...\n", e.name);
 		this.employees.add(e);
 	}
 	
+	// removes an employee from the system [UNTESTED]
 	public void removeEmployee(Employee e) {
 		System.out.printf("Removing Employee %s\n...", e.name);
 		this.employees.remove(e);
 	}
 	
+	// creates a new scheduler with the current employees list
 	public Scheduler initialiseScheduler() {
 		System.out.println("Initialising Scheduler...");
 		this.scheduler = new Scheduler(this.employees);
@@ -45,12 +48,14 @@ public class Controller {
 		
 	}
 	
+	// adds current employee preferences to the scheduler's model
+	// set print to true to enable system outputs
 	public void addPreferencesToModel(Scheduler scheduler, boolean print) {
 		if (print) {
 			System.out.println("Adding employee requests and preferences to model...");
 		}
 		if (Constants.MODE == "creditBank" ||Constants.MODE == "expectedPrefs") {
-			allocateFreePreferences();
+			allocateFreePreferences(); // allocate free preferences if using a credit bank based model
 		}
 		for (int i = 0; i<employees.size(); i++) {
 			Employee e = employees.get(i);
@@ -64,6 +69,9 @@ public class Controller {
 		}
 	}
 	
+	// pre-runs the scheduler when preferences are added so as to assert it is technically possible for the preference to be granted.
+	// not needed in this project as all preferences are possible to be awarded to employees.
+	// [UNTESTED]
 	public boolean preRunPreference(Preference p) {
 			Scheduler testScheduler = initialiseScheduler();
 			p.modelAsHard = true;
@@ -77,12 +85,16 @@ public class Controller {
 			return true;
 	}
 	
+	
+	// flags free preferences of employees and models them as hard constraints in the system
 	public boolean allocateFreePreferences() {
+		// gets the capacity of preferences (how many employees could maximally be awarded the preference)
 		int[] capacities = new int[Constants.DAYS_PER_WEEK];
 		for (int i = 0; i < capacities.length; i++) {
 			capacities[i] = employees.size() - Constants.WORKERS_NEEDED_PER_DAY[i];
 		}
 		
+		// gets the demand of preferences (how many employees want the preference)
 		int[] demand = new int[Constants.DAYS_PER_WEEK];
 		for (Employee employee : employees) {
 			for (Preference pref : employee.preferences) {
@@ -90,6 +102,7 @@ public class Controller {
 			}
 		}
 		
+		// if demand < capacity, model the preference as hard and update data on free prefs
 		for (Employee employee : employees) {
 			for (Preference pref : employee.preferences) {
 				if (demand[pref.day] <= capacities[pref.day]) {
@@ -103,6 +116,7 @@ public class Controller {
 		return false;
 	}
 	
+	// updates the credit banks for employees in Model C and D, and balance for employees in Model B.
 	public int[] updateBanks(boolean performAdjustment) {
 		int bankAdjustment = 0;
 		int[] adjustments = new int[employees.size()];
@@ -112,6 +126,7 @@ public class Controller {
 		}
 		if (Constants.MODE == "expectedPrefs" || Constants.MODE == "creditBank" ) {
 			
+			// gets the total conflicting preferences over all employees, as well as the total amount that were granted over all employees.
 			int totalConflictPrefs = 0;
 			int totalConflictPrefsGranted = 0;
 			for (int i=0; i<employees.size(); i++) {
@@ -127,6 +142,7 @@ public class Controller {
 			float averagePercentageConflictPrefsGranted = 0;
 			int employeesWithConflictingPrefs = 0;
 			
+			// for each employee, gets how many conflicting prefs they were granted
 			for (int i=0; i<employees.size(); i++) {
 				int employeeConflictPrefs = ((Constants.PREFERENCES_PER_PERSON - employees.get(i).freePrefs));
 				int employeeConflictPrefsGranted =0;
@@ -138,12 +154,14 @@ public class Controller {
 					}
 				}
 				
+				// gets the share of conflict prefs for the employee - their proportion of the total granted, based on their share of the total amount of conflicting preferences.
+				// calculates their bank adjustment from this.
 				float expectedShareOfConflictPrefs = (float) totalConflictPrefsGranted * 
 						((float) employeeConflictPrefs / (float) totalConflictPrefs);
 				bankAdjustment = (int) ((expectedShareOfConflictPrefs - employeeConflictPrefsGranted) * 100);
 				
 			
-				
+				// gets the percentage of the employees conflicting preferecnes they were awarded this week
 				float percentageConflictPrefsGranted = 0;
 				if (employeeConflictPrefs > 0) {
 					percentageConflictPrefsGranted = ((float)employeeConflictPrefsGranted / (float)employeeConflictPrefs) * 100;
@@ -161,6 +179,7 @@ public class Controller {
 				
 			 }
 			
+			// gets the average percentage of employee conflicting preferences awarded this week
 			averagePercentageConflictPrefsGranted = averagePercentageConflictPrefsGranted / (float)employeesWithConflictingPrefs;
 			if (performAdjustment) {
 				this.averagePercentageConflictPrefsGrantedHistory.add(averagePercentageConflictPrefsGranted);
@@ -168,7 +187,7 @@ public class Controller {
 				
 				
 		} else if (Constants.MODE == "minPrefs") {
-			
+			// updates balance based on how far above or below the employee was of the minPrefs value
 			for (int i=0; i<employees.size(); i++) {
 				bankAdjustment = scheduler.finalSolution.getIntVal(scheduler.totalPreferencesPerPerson[i]) -
 						scheduler.finalSolution.getIntVal(scheduler.minPrefs);
@@ -179,48 +198,6 @@ public class Controller {
 		
 		return adjustments;
 		 
-	}
-	
-	public int[] updateBanksSimDiffResults(Solution solution, int employee, int numPreferencesLess) {
-		int bankAdjustment = 0;
-		int[] adjustments = new int[employees.size()];
-		
-		int totalConflictPrefs = 0;
-		int totalConflictPrefsGranted = 0;
-		for (int i=0; i<employees.size(); i++) {
-			totalConflictPrefs += Constants.PREFERENCES_PER_PERSON - employees.get(i).freePrefs;
-			for (int j=0; j<Constants.PREFERENCES_PER_PERSON; j++) {
-				if (employees.get(i).preferences.get(j).free == false && 
-						solution.getIntVal(scheduler.preferences.get(i)[j]) == 1) {
-					totalConflictPrefsGranted += 1;
-				}
-			}
-		}
-		for (int i=0; i<employees.size(); i++) {
-			int employeeConflictPrefs = ((Constants.PREFERENCES_PER_PERSON - employees.get(i).freePrefs));
-			int employeeConflictPrefsGranted = 0;
-			
-			for (int j=0; j<Constants.PREFERENCES_PER_PERSON; j++) {
-				if (employees.get(i).preferences.get(j).free == false && 
-						solution.getIntVal(scheduler.preferences.get(i)[j]) == 1) {
-					employeeConflictPrefsGranted += 1;
-				}
-			}
-			
-			if (i == employee) {
-				if (employeeConflictPrefsGranted >= numPreferencesLess) {
-					employeeConflictPrefsGranted -= numPreferencesLess;
-				}
-			}
-			
-			float expectedShareOfConflictPrefs = (float) totalConflictPrefsGranted * 
-					((float) employeeConflictPrefs / (float) totalConflictPrefs);
-			bankAdjustment = (int) ((expectedShareOfConflictPrefs - employeeConflictPrefsGranted) * 100);
-			
-			adjustments[i] = bankAdjustment;
-			
-		 }
-		return adjustments;
 	}
 	
 	public void recordHistoryOfCurrentWeek() {
@@ -281,7 +258,8 @@ public class Controller {
 		System.out.println("********************************************************************************\n");
 	}
 	
-	
+	// randomly generated preferences for all employees in system... 
+	// weekendHeavy set to true means twice as many preferences will be asked for on fri and sat.
 	public void randomGen(boolean weekendHeavy) {
 		for (Employee employee : employees) {
 			Random rand = new Random();
@@ -314,6 +292,8 @@ public class Controller {
 		
 	}
 	
+	// sample simulation of many weeks running of solving.
+	// can change number of weeks to run for, how often preferences randomly change, if weekend heavy preferences, if stats are tracked
 	public void sampleRun(int numWeeks, int periodForPrefChange, boolean weekendHeavy, boolean trackStats, int iteration) throws IOException {
 		if (trackStats) {
 			createFoldersAndHeaders();
@@ -363,40 +343,7 @@ public class Controller {
 				fw.write("\n");
 				fw.close();
 			}
-			
-			/*
-			if (trackStats) {
-				Solution f = scheduler.finalSolution;
-				FileWriter fw = new FileWriter(Constants.DATA_FILE,true);
-				fw.write(
-				Constants.MODE + "Changed2, " 
-				+ iteration  + ", " 
-				+ employees.size()  + ", " 
-				+ numWeeks + ", "
-				+ periodForPrefChange  + ", " 
-				+ weekendHeavy  + ", " 
-				+ i + ", " 
-				+ f.getIntVal(scheduler.totalOverallPreferences) + ", "
-				+ f.getIntVal(scheduler.avgDists)  + ", " 
-				+ f.getIntVal(scheduler.diff) + ", ");
-				
-				for (int j=0 ;j<employees.size(); j++) {
-					fw.write(f.getIntVal(scheduler.totalPreferencesPerPerson[j]) + ", ");
-				}
-				for (int h=employees.size();h<6; h++) {
-					fw.write("0, ");
-				}
-			
-				fw.write("\n");
-				fw.close();
-			}
-			*/
 		
-			//employees.get(0).printStats();
-			//employees.get(1).printStats();
-			//employees.get(2).printStats();
-			//employees.get(3).printStats();
-			
 			newWeek();
 			System.out.println();
 			System.out.println();
@@ -419,6 +366,7 @@ public class Controller {
 		System.out.println();
 	}
 
+	// creates folders for storing data for analysis
 	public void createFoldersAndHeaders() throws IOException {
 		File theDir = new File(Constants.DATA_FILE);
 		if (!theDir.exists()){
@@ -437,22 +385,8 @@ public class Controller {
 		}
 	}
 	
-	
-	/*
-	 * How explain minPrefs
-	 * 
-	 * replay
-	 * 
-	 * show minPrefs value and total num of prefs value
-	 * "Giving you this preference would mean the minimum amount of preference given to employees is lowered
-	 * "giving you the preference would result overall in less preference output."
-	 * 
-	 * ""
-	 * 
-	 * 
-	 * */
-	
-	
+
+	// replay a solution with preference p modelled as a hard constraint to show differences in solutions.
 	public Solution replay(int employee, Preference p) {
 		System.out.println("********************************************************************************");
 		System.out.printf("-----------------------------RE-RUNNING WEEK %d--------------------------------\n", week);	
@@ -522,8 +456,8 @@ public class Controller {
 		return replayedSolution;
 	}
 	
-	
-	public void explainLowExPrefsValue(Employee e) {
+	// explains an employees current expected preferences value for current week.
+	public void explainExPrefsValue(Employee e) {
 		float avgEveryone = 0;
 		float avgEmployee = 0;
 		
@@ -581,24 +515,9 @@ public class Controller {
 		System.out.println("\n\n\n");
 	}
 	
+	// explains why a preference wasn't granted by analysis of other employees who were granted the preference.
 	public void explainPreferenceNotGranted(int employeeIndex, Preference p) {
 		Employee e = employees.get(employeeIndex);
-		
-		/*
-		 //  Your expected pref was X.
-		   //   You received Y preferences
-		   //   if received > expected then thats the reason
-		   //   if less than - 
-		               give possible reasons
-		               check employee(s) who got it instead of you
-		                      if their banks higher say that
-		               else if same say this was random
-		               if banks lower say that this employee received only X preference this week (less than u) and this was it
-
-		   // check bank adjustment value?
-		         your bank was adjusted by x%
-		 */
-		
 		float expected = (float) scheduler.finalSolution.getIntVal(scheduler.exScores[employeeIndex]) / 100;
 		float actual = scheduler.finalSolution.getIntVal(scheduler.totalPreferencesPerPerson[employees.indexOf(e)]);
 		
@@ -659,7 +578,7 @@ public class Controller {
 				}
 				if (amountEmployeesSameBank > 0) {
 					System.out.printf("Of these employees, %d had the same bank as you. \n", amountEmployeesSameBank);
-					System.out.println("Cases like this are decided randomly. Because you are on the worse end, you may receive a boost in future weeks");
+					System.out.println("Because you had the same expected preferences as another employee, the decision for who got more preferences was decided randomly. Because you are on the worse end, you may receive a boost in future weeks");
 				}
 				if (amountEmployeesLessSamePrefsThanYou > 0) {
 					System.out.printf("Of these employees, %d received less or the same preferences as you overall. \n", amountEmployeesLessSamePrefsThanYou);
@@ -675,8 +594,7 @@ public class Controller {
 			} else if (percentageBankIncrease == 0) {
 				System.out.println("same.");
 			} else {
-				System.out.printf("As you received less preferences than your expected share this week, your bank balance has been increased by %.2f percent\n", percentageBankIncrease);
-				System.out.printf("This will boost you in receiving more preferences in weeks to come. \n");
+				System.out.printf("As you received less preferences than your expected share this week, you have received a %.2f percent increased chance of receiving preferences in future. \n");
 			}
 			
 		}
@@ -684,6 +602,51 @@ public class Controller {
 		System.out.println("\n\n");
 	}
 	
+	// used in counter-explanation systems to simulate different results for employees over previous weeks.
+	public int[] updateBanksSimDiffResults(Solution solution, int employee, int numPreferencesLess) {
+		int bankAdjustment = 0;
+		int[] adjustments = new int[employees.size()];
+		
+		int totalConflictPrefs = 0;
+		int totalConflictPrefsGranted = 0;
+		for (int i=0; i<employees.size(); i++) {
+			totalConflictPrefs += Constants.PREFERENCES_PER_PERSON - employees.get(i).freePrefs;
+			for (int j=0; j<Constants.PREFERENCES_PER_PERSON; j++) {
+				if (employees.get(i).preferences.get(j).free == false && 
+						solution.getIntVal(scheduler.preferences.get(i)[j]) == 1) {
+					totalConflictPrefsGranted += 1;
+				}
+			}
+		}
+		for (int i=0; i<employees.size(); i++) {
+			int employeeConflictPrefs = ((Constants.PREFERENCES_PER_PERSON - employees.get(i).freePrefs));
+			int employeeConflictPrefsGranted = 0;
+			
+			for (int j=0; j<Constants.PREFERENCES_PER_PERSON; j++) {
+				if (employees.get(i).preferences.get(j).free == false && 
+						solution.getIntVal(scheduler.preferences.get(i)[j]) == 1) {
+					employeeConflictPrefsGranted += 1;
+				}
+			}
+			
+			if (i == employee) {
+				if (employeeConflictPrefsGranted >= numPreferencesLess) {
+					employeeConflictPrefsGranted -= numPreferencesLess;
+				}
+			}
+			
+			float expectedShareOfConflictPrefs = (float) totalConflictPrefsGranted * 
+					((float) employeeConflictPrefs / (float) totalConflictPrefs);
+			bankAdjustment = (int) ((expectedShareOfConflictPrefs - employeeConflictPrefsGranted) * 100);
+			
+			adjustments[i] = bankAdjustment;
+			
+		 }
+		return adjustments;
+	}
+	
+	// first calculates bank boost needed for employee to be granted preference p.
+	// then simulates how many weeks employee receiving one less preference would take for preference p to be granted this week
 	public void explainDecisionCounter(int employee, Preference p) {
 		boolean done = false;
 		Solution replayedSolution;
@@ -707,28 +670,44 @@ public class Controller {
 			}
 		}
 		
+		
 		float balance = employees.get(employee).bank;
 		float adjustment = 0;
 		int i=0;
 		while ((balance + adjustment) < neededBankBalance && i < week) {
-			int[] adjustments = updateBanksSimDiffResults(this.finalSolutionHistory.get(week-1-i), employee, 1);
+			int[] adjustments = updateBanksSimDiffResults(
+					this.finalSolutionHistory.get(week-1-i), employee, 1
+				);
 			
 			adjustment += adjustments[employee]; // add adjustment
 			balance = employees.get(employee).bankHistory.get(week-1-i);
 			i+=1;
 		}
-		System.out.printf("If you were granted 1 less conflicting preferences for the last %d week(s), you would have been granted this preference this week.\n", i);
+		System.out.printf("If you were granted 1 less conflicting preferences for the last %d week(s), "
+				+ "you would have been granted this preference this week.\n", i);
 		
 	}
 	
+	// explains concept of free preferences to recipient who is questioning the target employee for receiving more preferences than them (despite lower expected preferences)
+	public void explainFreePreferences(Employee recipient, Employee target) {		
+		if (target.bank > recipient.bank) {
+			System.out.printf("Employee %s had a greater expected preferences value than you due to being treated less fairly than you over time.\n", target.name);
+		} else if (target.bank < recipient.bank) {
+			System.out.printf("Employee %s had lower expected preferences value than you due to being treated less fairly than you over time.\n", target.name);
+			System.out.printf("However, %d out of %d of %s's preferences were uncontested by other employees, and therefore marked as \"free\". \r\n"
+					+ "\r\n"
+					+ "If %s's preferences this week had have been contesting with your preferences, you would have received more preferences than %s.", target.freePrefs, Constants.PREFERENCES_PER_PERSON, target.name, target.name, target.name);
+		}
+		
+		
+	}
 	
 	public void explain1(int employee, Preference p) {
-		explainLowExPrefsValue(employees.get(employee));
 		replay(employee, p);
 	}
 	
 	public void explain2(int employee, Preference p) {
-		explainLowExPrefsValue(employees.get(employee));
+		explainExPrefsValue(employees.get(employee));
 		explainPreferenceNotGranted(employee, p);	
 	}
 	

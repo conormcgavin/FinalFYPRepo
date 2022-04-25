@@ -16,20 +16,19 @@ import org.chocosolver.util.tools.ArrayUtils;
 public class Scheduler {
 	Model model;
 	
-	IntVar[][] timetable;
+	IntVar[][] timetable; // returned timetable / solution
 	
-	IntVar[] levels;
 	
-	ArrayList<IntVar[]> preferences;
-	IntVar[] totalPreferencesPerPerson;
-	IntVar totalOverallPreferences;
+	ArrayList<IntVar[]> preferences; // list of preferences for all employees
+	IntVar[] totalPreferencesPerPerson; // total preferences granted for each employee
+	IntVar totalOverallPreferences; // total overall preferences granted
 	
-	ArrayList<Employee> employees;
+	ArrayList<Employee> employees; // list of employees for scheduling
 	
-	Solution finalSolution;
+	Solution finalSolution; // final solution returned after optimising/solving
 	
-	IntVar diff;
-	IntVar sumDists;
+	IntVar diff; // data collection constraints, difference between minimum and maximum preferences awarded to employees in a week 
+	IntVar sumDists; // sum of distances of employee received preferences from average value.
 
 	
 	// Optional based on optimisation function
@@ -44,9 +43,6 @@ public class Scheduler {
 	IntVar[] minAdjusted;
 	int[][] preferenceScores;
 	IntVar avgDists;
-	int amountOptimalSolutions;
-	
-	
 	
 	
 	public Scheduler(ArrayList<Employee> employees) {
@@ -57,15 +53,10 @@ public class Scheduler {
 		
 		this.timetable = model.intVarMatrix("Timetable", employees.size(), Constants.DAYS_PER_WEEK, 0, 1);
 		
-		this.levels = model.intVarArray("levels", employees.size(), 0, 2);
-		
 		this.preferences = new ArrayList<IntVar[]>();
 		for (int i=0; i<employees.size(); i++) {
 			preferences.add(model.intVarArray("PreferenceAssignments", Constants.PREFERENCES_PER_PERSON, 0, 1));
-			levels[i] = model.intVar(employees.get(i).skillLevel);
 		}
-		
-		
 		
 		this.totalPreferencesPerPerson = model.intVarArray("PrefsPerPerson", employees.size(), 0, 100000);
 		this.totalOverallPreferences = model.intVar("TotalOverallScore", 0, 100000);
@@ -79,6 +70,7 @@ public class Scheduler {
 	
 	}
 	
+	// hard constraints for system - basic business needs
 	private void addHardConstraints() {
 		// the total of the entire matrix should add up to the sum of workers_hours_per_week
 		int sum_workers_needed = 0;
@@ -100,13 +92,13 @@ public class Scheduler {
 	}
 	
 	public void addPreference(int person, Preference p) {
+		// soft constraint
 		if (p.modelAsHard == false) {
-			
 			model.ifOnlyIf(
 					model.arithm(timetable[person][p.day], "=", 0), 
 					model.arithm(preferences.get(person)[p.order-1], "=", 1)
 			);
-			
+		// hard constraint
 		} else {
 			model.arithm(timetable[person][p.day], "=", 0).post();
 			model.arithm(preferences.get(person)[p.order-1], "=", 1).post();
@@ -116,6 +108,7 @@ public class Scheduler {
 		}
 	}
 	
+	// constraints for collecting data for analysis in evaluation - diff and sumDists
 	public void addDataCollectionConstraints() {
 		IntVar max = model.intVar(0, 1000000);
 		model.max(max, totalPreferencesPerPerson).post();
@@ -145,6 +138,7 @@ public class Scheduler {
 		model.arithm(sumDists, "/", model.intVar(employees.size()), "=", avgDists).post();;
 	}	
 	
+	// base optimiser for every objective function
 	public void optimise() {
 		
 		for (int i = 0; i < employees.size(); i++) {
@@ -162,6 +156,7 @@ public class Scheduler {
 		}
 	}
 	
+	// optimisation for credit bank model
 	public void optimiseCreditBank() {
 		
 		this.preferenceScoreAssignment = model.intVarArray("PreferenceScores", employees.size(), 0 , 100000);
@@ -177,6 +172,7 @@ public class Scheduler {
 		
 	}
 
+	// optimisation for expected preferences model
 	public void optimiseExpectedPrefs() {
 		
 		this.exScores = model.intVarArray("exScores", employees.size(), 0, 100000);
@@ -225,31 +221,15 @@ public class Scheduler {
 		
 		maxScoreDiff = model.intVar(0, 100000000);
 		model.max(maxScoreDiff, scoreDiffs).post();
-		/*
-		IntVar[] diffs = model.intVarArray(employees.size(), 0, 10000000);
-		
-		IntVar maxScoreDiff = model.intVar(0, 10000000);
-		for (int i=0; i<employees.size(); i++) {
-			// have a list pointing to the intvars for every leftover variable
-			// get the min diff from this
-			// multiply it by 10^i
-			// add it to list of diffs
-			
-			// get argmin and remove it from the list? is that possible
-			// 
-			IntVar maxDist = model.max(maxScoreDiff, scoreDiffs).post();
-		}
-		// get sum of this list as finalscore thing
-		*/
-		
+	
 		model.arithm(finalScore, "=", totalOverallPreferencesBy100, "-", maxScoreDiff).post();
 		
 		model.setObjective(Model.MAXIMIZE, finalScore);
 		
 	}
 
+	// optimsation for maximising minimum amount of preferences model
 	public void optimiseMinPrefs() {
-
 		this.minPrefs = model.intVar(0, 1000000);
 		this.minAdjusted = model.intVarArray(employees.size(), 0, 1000000);
 
@@ -268,6 +248,8 @@ public class Scheduler {
 	}
 
 
+	// solver for all models
+	// prints solutions if printSolutions set to True
 	public Solution solve(boolean printSolutions) {
 		if (printSolutions) {
 			System.out.println("Solving...");
@@ -361,7 +343,7 @@ public class Scheduler {
 		return finalSolution;
 	}
 	
-
+	// prints solution s timetable
 	public void printSolution(Solution s) {
 		System.out.println("Printing Optimal Solution...");
 		System.out.println("-----------------------------------------------------------------------------");
@@ -375,6 +357,7 @@ public class Scheduler {
 		}	
 	}
 	
+	// print info on assignment of preferences to employees
 	public void printPreferenceAssignments(Solution s) {
 		System.out.println("-----------------------------------------------------------------------------");
 		System.out.println("Printing preference assignments...");
@@ -390,6 +373,7 @@ public class Scheduler {
 		System.out.println("-----------------------------------------------------------------------------");
 	}
 
+	// print extra info, varying on different models
 	public void printExtraInfo(Solution s) {
 		System.out.println("Printing extra info...");
 		System.out.println("-----------------------------------------------------------------------------");

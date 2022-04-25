@@ -2,22 +2,20 @@ package finalBosss;
 import java.util.ArrayList;
 
 public class Employee {
-	int[] preferencesReceived;
-	ArrayList<Preference> preferences;
-	ArrayList<Preference> preferenceHistory;
-	int freePrefs;
+	int[] preferencesReceived; // amount of each order preference received
+	ArrayList<Preference> preferences; // current preference of employee
+	ArrayList<Preference> preferenceHistory; // history of past preferences of employee
+	int freePrefs; // number of free preferences the employee has in the current week
 	
 	String name;
-	int minDaysPerWeek;
-	int maxDaysPerWeek;
-	int skillLevel;
+	int minDaysPerWeek; // minimum number of days employee should work a week
+	int maxDaysPerWeek; // maximum number of days employee should work a week
 	
-	ArrayList<Integer> bankHistory;
-	ArrayList<Integer> prefScoreHistory;
-	ArrayList<Integer> freePrefHistory;
-	ArrayList<Float> conflictPercentageGrantedHistory;
-	int bank;
-	int totalGivenScore;
+	ArrayList<Integer> bankHistory; // history of bank balances over weeks
+	ArrayList<Integer> prefScoreHistory; //  Model C: history of preference scores given to employee over weeks
+	ArrayList<Integer> freePrefHistory;  // history of free preferences granted to employee over weeks
+	ArrayList<Float> conflictPercentageGrantedHistory; //  history of the percentage of the employee's non-free preferences that were granted over weeks
+	int bank; // Model C + D: credit bank of employee. Model B: surplus balance of employee.
 	
 	public Employee(String name, int min_days, int max_days, int skill_level) {
 		
@@ -31,14 +29,12 @@ public class Employee {
 		this.name = name;
 		this.minDaysPerWeek = min_days;
 		this.maxDaysPerWeek= max_days;
-		this.skillLevel = skill_level;
 		
 		
 		if (Constants.MODE == "expectedPrefs" || Constants.MODE == "creditBank") {
 			this.bank = Constants.START_BANK;
 			this.bankHistory = new ArrayList<Integer>();
 			this.bankHistory.add(this.bank);
-			this.totalGivenScore = 0;
 			this.prefScoreHistory = new ArrayList<Integer>();
 		} else if (Constants.MODE == "minPrefs") {
 			this.bank = 0;
@@ -46,7 +42,7 @@ public class Employee {
 		}
 	}
 
-	
+	// adds new preference for employee. If preference already present for the order chosen,replaces that preference.
 	public void addPreference(int week, int day, int order) {
 		Preference p;
 		if (Constants.MODE == "creditBank") {
@@ -62,6 +58,7 @@ public class Employee {
 		
 	}
 	
+	// prints current preferences of employee
 	public void printCurrentPrefs() {
 		System.out.println("Current preferences");
 		for (Preference preference : preferences) {
@@ -70,6 +67,7 @@ public class Employee {
 		System.out.println();
 	}
 	
+	// prints information on previous preferences of employee
 	public void printPrefHistory() {
 		System.out.println("********************************************************************************");
 		System.out.println("Preference history");
@@ -78,6 +76,7 @@ public class Employee {
 		}
 	}
 	
+	// prints statistics on employee treatment and preferences over time.
 	public void printStats() {
 		System.out.println("********************************************************************************");
 		System.out.println("Printing stats for " + name + "...");

@@ -5,7 +5,7 @@ public final class Constants {
     private Constants() {
             // restrict instantiation
     }
-    static String MODE = "expectedPrefs";
+    static String MODE = "expectedPrefs"; // change the objective function to be used in solving
     
     static String DATA_FILE = String.format("C:\\Users\\cmcga\\balancedataXXXXX.txt");
     

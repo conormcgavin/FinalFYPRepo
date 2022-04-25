@@ -23,6 +23,7 @@ public class Main {
 		//c.addEmployee(e8);
 		
 
+		/*
 		
 		int numWeeks = 2;
 		
@@ -53,7 +54,6 @@ public class Main {
 			e6.addPreference(c.week, 0, 1);
 			e6.addPreference(c.week, 2, 2);
 			e6.addPreference(c.week, 3, 3);
-			*/
 			
 			Solution s = c.runWeek();
 			
@@ -62,16 +62,17 @@ public class Main {
 				c.newWeek();
 			}
 		}
+		*/
 		
-		
-		e1.printStats();
-		e2.printStats();
+		//e1.printStats();
+		//e2.printStats();
 		/*
 		c.explain1(1, e2.preferences.get(2));
 		System.out.println("_________________________\n\n");
 		*/
-		c.explain3(1, e2.preferences.get(2));
-		System.out.println("_________________________\n\n");
+		//c.explainExPrefsValue(e2);
+		//System.out.println("_________________________\n\n");
+		//c.explainFreePreferences(e1, e2);
 		//c.explain3(1, e2.preferences.get(2));
 		
 		//c.explain3(1, e2.preferences.get(2));
@@ -80,8 +81,9 @@ public class Main {
 		c.sampleRun(2, 1, true, false, 0);
 		*/
 		
+		reset();
+		c.sampleRun(52, 1, true, true, 0);
 		/*
-
 		int numIters = 5;
 		
 		
@@ -89,8 +91,7 @@ public class Main {
 		
 		for (int i = 0; i < numIters; i++) {
 	
-			reset();
-			c.sampleRun(52, 1, true, true, i);
+			
 			reset();
 			c.sampleRun(52, 4, true, true, i);
 		}
